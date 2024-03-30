@@ -19,6 +19,7 @@ func init() {
 	}
 }
 
+// Flood continuously sends requests to URLs until all URLs are burned or a shutdown is triggered.
 func Flood() {
 	for {
 		if AllBurned() {
@@ -42,6 +43,9 @@ func Flood() {
 	}
 }
 
+// TriggerShutdown triggers the shutdown process.
+// It retrieves the IP addresses, formats the message, and publishes it to Kafka.
+// If any error occurs during the process, it will log the error and initiate a shutdown.
 func TriggerShutdown() {
 	log.Info().Msg("Triggering shutdown")
 
@@ -68,6 +72,9 @@ func TriggerShutdown() {
 	utils.Shutdown()
 }
 
+// AllBurned checks if all the URLs in the list have been burned.
+// It iterates over the URLs and returns false if any URL is not burned.
+// If all URLs are burned, it logs a message and returns true.
 func AllBurned() bool {
 	for _, url := range urls {
 		if !IsBurned(url) {
@@ -78,11 +85,15 @@ func AllBurned() bool {
 	return true
 }
 
+// BurnUrl marks the given URL as burned.
+// It adds the URL to the `burnedUrls` map with a value of `true`.
 func BurnUrl(url string) {
 	log.Debug().Str("url", url).Msg("Burning URL")
 	burnedUrls[url] = true
 }
 
+// IsBurned checks if a URL is burned.
+// It returns true if the URL is burned, false otherwise.
 func IsBurned(url string) bool {
 	return burnedUrls[url]
 }

@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"floody-buddy/config"
-	"floody-buddy/pkg/logger"
 	"floody-buddy/internal/models"
+	"floody-buddy/pkg/logger"
 )
 
 var log = logger.New()
@@ -26,18 +27,33 @@ func FormatUrls() []string {
 	return formattedUrls
 }
 
+
 // MakeRequest sends an HTTP GET request to the specified address.
-// It logs the address and handles the response.
+// It retries the request up to 10 times with increasing intervals if it fails.
+// If the request is successful, it calls the HandleResponse function.
+// If the request fails after 10 attempts, it returns an error.
 func MakeRequest(address string) error {
-	log.Debug().Str("address", address).Msg("Making request")
-	resp, err := http.Get(address)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to make request")
-		return err
-	} else {
-		HandleResponse(resp)
+	log := logger.New()
+	timeout := time.Duration(config.AppConfig.Timeout) * time.Second
+	retryInterval := timeout / 10
+
+	for i := 0; i < 10; i++ {
+		log.Debug().Str("address", address).Msg("Making request")
+		resp, err := http.Get(address)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to make request, attempt %d", i+1)
+			time.Sleep(time.Duration(retryInterval) * time.Second)
+			retryInterval += retryInterval / 10
+			if retryInterval > timeout {
+				return fmt.Errorf("failed to make request after reaching max timeout: %w", err)
+			}
+		} else {
+			HandleResponse(resp)
+			return nil
+		}
 	}
-	return nil
+
+	return fmt.Errorf("failed to make request after 10 attempts")
 }
 
 // HandleResponse handles the HTTP response and logs the appropriate message based on the status code.

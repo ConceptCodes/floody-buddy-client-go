@@ -21,27 +21,22 @@ func init() {
 
 func Flood() {
 	for {
+		if AllBurned() {
+			TriggerShutdown()
+			return
+		}
+
+		var url string
 		if len(urls) == 1 {
-			if !IsBurned(urls[0]) {
-				err := utils.MakeRequest(urls[0])
-				if err != nil {
-					BurnUrl(urls[0])
-				}
-			} else {
-				if AllBurned() {
-					TriggerShutdown()
-				}
-			}
+			url = urls[0]
 		} else {
-			if AllBurned() {
-				TriggerShutdown()
-			}
-			randomIndex := rand.Intn(len(urls))
-			if !IsBurned(urls[randomIndex]) {
-				err := utils.MakeRequest(urls[randomIndex])
-				if err != nil {
-					BurnUrl(urls[randomIndex])
-				}
+			url = urls[rand.Intn(len(urls))]
+		}
+
+		if !IsBurned(url) {
+			err := utils.MakeRequest(url)
+			if err != nil {
+				BurnUrl(url)
 			}
 		}
 	}
@@ -49,11 +44,14 @@ func Flood() {
 
 func TriggerShutdown() {
 	log.Info().Msg("Triggering shutdown")
+
 	ips, err := utils.GetIPAddresses()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get IP addresses")
+		// NOTE: is shutdown necessary here?
 		utils.Shutdown()
 	}
+
 	message := models.Message{
 		IpAddress: ips,
 		Urls:      urls,
@@ -62,6 +60,7 @@ func TriggerShutdown() {
 	payload, err := utils.FormatMessage(message)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to format message")
+		// NOTE: is shutdown necessary here?
 		utils.Shutdown()
 	}
 
@@ -80,7 +79,7 @@ func AllBurned() bool {
 }
 
 func BurnUrl(url string) {
-	log.Debug().Str("url", url).Msg("Burned URL")
+	log.Debug().Str("url", url).Msg("Burning URL")
 	burnedUrls[url] = true
 }
 

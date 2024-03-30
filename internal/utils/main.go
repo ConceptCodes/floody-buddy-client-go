@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"floody-buddy/config"
-	"floody-buddy/internal/models"
 	"floody-buddy/pkg/logger"
+	"floody-buddy/internal/models"
 )
 
 var log = logger.New()
@@ -85,6 +85,8 @@ func GetIPAddresses() ([]string, error) {
 	return ips, nil
 }
 
+// FormatMessage formats the given message as a JSON string.
+// It takes a message of type models.Message as input and returns the formatted JSON string and an error (if any).
 func FormatMessage(msg models.Message) (string, error) {
 	jsonData, err := json.Marshal(msg)
 	if err != nil {

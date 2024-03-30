@@ -2,7 +2,9 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -27,33 +29,69 @@ func FormatUrls() []string {
 	return formattedUrls
 }
 
-
-// MakeRequest sends an HTTP GET request to the specified address.
-// It retries the request up to 10 times with increasing intervals if it fails.
-// If the request is successful, it calls the HandleResponse function.
-// If the request fails after 10 attempts, it returns an error.
+// MakeRequest sends a request to the specified address and handles retries in case of failure.
+// It takes the address as a parameter and returns an error if the request fails after the maximum number of retries.
 func MakeRequest(address string) error {
-	log := logger.New()
-	timeout := time.Duration(config.AppConfig.Timeout) * time.Second
-	retryInterval := timeout / 10
-
-	for i := 0; i < 10; i++ {
-		log.Debug().Str("address", address).Msg("Making request")
-		resp, err := http.Get(address)
+	for i := 0; i < config.AppConfig.MaxRetries; i++ {
+		err := sendRequest(address)
 		if err != nil {
-			log.Error().Err(err).Msgf("Failed to make request, attempt %d", i+1)
-			time.Sleep(time.Duration(retryInterval) * time.Second)
-			retryInterval += retryInterval / 10
-			if retryInterval > timeout {
-				return fmt.Errorf("failed to make request after reaching max timeout: %w", err)
+			err = handleRequestFailure(err, i)
+			if err != nil {
+				return err
 			}
 		} else {
-			HandleResponse(resp)
 			return nil
 		}
 	}
 
-	return fmt.Errorf("failed to make request after 10 attempts")
+	return errors.New("failed to make request")
+}
+
+// sendRequest sends an HTTP GET request to the specified address.
+// It logs the address and makes the request. If the request is successful,
+// it handles the response using the HandleResponse function.
+// It returns an error if there was a problem making the request.
+func sendRequest(address string) error {
+	log.Debug().Str("address", address).Msg("Making request")
+	resp, err := http.Get(address)
+	if err == nil {
+		HandleResponse(resp)
+	}
+	return err
+}
+
+// handleRequestFailure handles the failure of a request and implements retry logic.
+// It takes in the error that occurred, the attempt number, the retry interval, and the timeout duration.
+// It returns the updated retry interval and an error if the request fails after reaching the max timeout.
+func handleRequestFailure(err error, attempt int) error {
+	log.Error().Err(err).Msgf("Failed to make request, attempt %d", attempt+1)
+	timeout := time.Duration(config.AppConfig.Timeout) * time.Second
+
+	delay, err := getDelay(attempt, timeout)
+
+	if err != nil {
+		return err
+	}
+
+	log.Debug().Dur("wait_time", delay).Msg("Waiting before retrying")
+	time.Sleep(delay)
+
+	return nil
+}
+
+// getDelay calculates the delay time for a retry attempt based on the attempt number and timeout duration.
+// It applies exponential backoff with jitter to introduce randomness in the delay time.
+// If the calculated delay time exceeds the timeout duration, it returns the timeout duration with an error.
+func getDelay(attempt int, timeout time.Duration) (time.Duration, error) {
+	backoff := time.Duration(1<<uint(attempt)) * time.Second
+	jitter := time.Duration(rand.Intn(1000)) * time.Millisecond
+	waitTime := backoff + jitter
+
+	if waitTime > timeout {
+		return timeout, errors.New("request timed out")
+	}
+
+	return waitTime, nil
 }
 
 // HandleResponse handles the HTTP response and logs the appropriate message based on the status code.

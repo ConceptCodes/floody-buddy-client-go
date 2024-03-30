@@ -1,6 +1,7 @@
 package spammer
 
 import (
+	"context"
 	"math/rand"
 
 	"floody-buddy/internal/models"
@@ -19,25 +20,32 @@ func init() {
 	}
 }
 
-// Flood continuously sends requests to URLs until all URLs are burned or a shutdown is triggered.
-func Flood() {
+// Flood is a function that continuously sends requests to URLs until the context is cancelled or all URLs are burned.
+func Flood(ctx context.Context, cancel context.CancelFunc) {
 	for {
-		if AllBurned() {
-			TriggerShutdown()
+		select {
+		case <-ctx.Done():
+			log.Debug().Msg("Context done")
 			return
-		}
+		default:
+			if AllBurned() {
+				TriggerShutdown()
+				cancel()
+				return
+			}
 
-		var url string
-		if len(urls) == 1 {
-			url = urls[0]
-		} else {
-			url = urls[rand.Intn(len(urls))]
-		}
+			var url string
+			if len(urls) == 1 {
+				url = urls[0]
+			} else {
+				url = urls[rand.Intn(len(urls))]
+			}
 
-		if !IsBurned(url) {
-			err := utils.MakeRequest(url)
-			if err != nil {
-				BurnUrl(url)
+			if !IsBurned(url) {
+				err := utils.MakeRequest(url)
+				if err != nil {
+					BurnUrl(url)
+				}
 			}
 		}
 	}

@@ -8,7 +8,7 @@ import (
 )
 
 type Config struct {
-	Domains    string `env:"HOST" envDefault:"0.0.0.0"`
+	Domains    string `env:"DOMAINS" envDefault:"0.0.0.0"`
 	Timeout    int    `env:"HTTP_TIMEOUT" envDefault:"15"`
 	MaxRetries int    `env:"MAX_RETRIES" envDefault:"5"`
 	Topic      string `env:"KAFKA_TOPIC" envDefault:"test"`

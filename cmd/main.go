@@ -21,7 +21,10 @@ func Start() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	for i := 0; i < workers; i++ {
-		go func() { spammer.Flood(ctx, cancel) }()
+		go func() { 
+			spammer.Flood(ctx, cancel) 
+			os.Stdout.Sync()
+		}()
 	}
 
 	// Wait for a signal to shutdown.
